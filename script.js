@@ -98,7 +98,7 @@ map.on('load', () => {
     map.on('click', 'nh-poly', (e) => {
         new mapboxgl.Popup()
             .setLngLat(e.lngLat)
-            .setHTML(e.features[0].properties.AREA_DE8 + ' - ' + (e.features[0].properties.Percent_in)*100 + '%')
+            .setHTML(e.features[0].properties.AREA_DE8 + ' - ' + (parseFloat(e.features[0].properties.Percent_in)*100).toFixed(2) + '%')
             .addTo(map);
         let feature = e.features[0] // grab the feature clicked on
         let polygon = turf.polygon(feature.geometry.coordinates) // create a turf polygon from the clicked on feature
