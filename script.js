@@ -6,12 +6,65 @@ const map = new mapboxgl.Map({
     zoom: 10
 });
 
+// construct and add the legend
+//Declare array variables for labels and colours
+const legendlabels = [
+    '0-9%',
+    '9-14%',
+    '14-18%',
+    '18-25%',
+    '>25%'
+];
+
+const legendcolours = [
+    '#f2f0f7',
+    '#cbc9e2',
+    '#9e9ac8',
+    '#756bb1',
+    '#54278f'
+];
+
+//Declare legend variable using legend div tag
+const legend = document.getElementById('legend');
+
+//For each layer create a block to put the colour and label in
+legendlabels.forEach((label, i) => {
+    const colour = legendcolours[i];
+
+    const item = document.createElement('div'); //each layer gets a 'row' - this isn't in the legend yet, we do this later
+    const key = document.createElement('span'); //add a 'key' to the row. A key will be the colour circle
+
+    key.className = 'legend-key'; //the key will take on the shape and style properties defined in css
+    key.style.backgroundColor = colour; // the background color is retreived from teh layers array
+
+    const value = document.createElement('span'); //add a value variable to the 'row' in the legend
+    value.innerHTML = `${label}`; //give the value variable text based on the label
+
+    item.appendChild(key); //add the key (colour cirlce) to the legend row
+    item.appendChild(value); //add the value to the legend row
+
+    legend.appendChild(item); //add row to the legend
+});
+
+let hoveredPolygonId = null; // set variable to hold ID of polygon hovered on, initialize to null
+
+const returnbutton = document.getElementById("returnbutton")
+
+returnbutton.addEventListener('click', (e) => {
+    map.flyTo({
+        center: [-79.38, 43.70],
+        zoom: 10,
+        essential: true
+    })
+})
+
 map.on('load', () => {
     // add vector tileset
     // nh-data is neighbourhood polygons for Toronto with census data attached
     map.addSource('nh-data', {
         type: 'vector',
-        url: 'mapbox://drinnird.33zzryqm' 
+        url: 'mapbox://drinnird.33zzryqm',
+        "promoteId": {"nh_bottom_decile-42s87v": "nh_code"} // assign unique IDs from neighbourhood ID because there was a bug in auto-generated unique IDs
     });
     // draw features from vector tileset
 
@@ -23,38 +76,68 @@ map.on('load', () => {
         'paint': {
             'fill-color':         [
                 'step', // STEP expression produces stepped results based on value pairs
-                ['get', 'Percent_in'], // GET expression retrieves property value from 'population' data field
+                ['*',['get', 'Percent_in'],100], // GET expression retrieves property value from 'Percent_id' data field
                 '#f2f0f7', // Colour assigned to any values < first step
-                0.09, '#cbc9e2', // Colours assigned to values >= each step
-                0.14, '#9e9ac8',
-                0.18, '#756bb1',
-                0.25, '#54278f'
+                9, '#cbc9e2', // Colours assigned to values >= each step
+                14, '#9e9ac8',
+                18, '#756bb1',
+                25, '#54278f'
             ],
-            'fill-opacity': 0.5,
+            'fill-opacity': [ // set the fill opacity based on a feature state which is set by a hover event listener
+                'case',
+                ['boolean', ['feature-state', 'hover'], false],
+                1,  // opaque when hovered on
+                0.5 // semi-transparent when not hovered on
+            ],
             'fill-outline-color': 'white'
         },
         'source-layer': 'nh_bottom_decile-42s87v'
     })
 
-    
-    // Change the cursor to a pointer when
-    // the mouse is over the states layer.
-    map.on('mouseenter', 'nh-poly', (e) => {
-        map.getCanvas().style.cursor = 'pointer';
-    });
     // create dynamically generated popups based on the properties set in the vector tile for each polygon
     map.on('click', 'nh-poly', (e) => {
         new mapboxgl.Popup()
             .setLngLat(e.lngLat)
-            .setHTML(e.features[0].properties.AREA_DE8 + ' - ' + e.features[0].properties.Percent_in)
+            .setHTML(e.features[0].properties.AREA_DE8 + ' - ' + (e.features[0].properties.Percent_in)*100 + '%')
             .addTo(map);
+        let feature = e.features[0] // grab the feature clicked on
+        let polygon = turf.polygon(feature.geometry.coordinates) // create a turf polygon from the clicked on feature
+        let centroid = turf.centroid(polygon) // calculate the centroid of the polygon
+        map.flyTo({center: centroid.geometry.coordinates, zoom:12}); // zoom in on the centroid of the clicked polygon
     } )
 
-    // Change the cursor back to a pointer
-    // when it leaves the states layer.
-    // hide the popups when the mouse stops hovering over a location
+
+    // When the user moves their mouse over the nh-poly layer, we'll update the
+    // feature state for the feature under the mouse.
+    map.on('mousemove', 'nh-poly', (e) => {
+        map.getCanvas().style.cursor = 'pointer'; // update the mouse cursor to a pointer to indicate clickability
+        if (e.features.length > 0) {
+            if (hoveredPolygonId !== null) {
+                map.setFeatureState(
+                    // must provide sourceLayer name when using a vector tileset for this function
+                    { source: 'nh-data', sourceLayer: 'nh_bottom_decile-42s87v', id: hoveredPolygonId },
+                    { hover: false }
+                );
+            }
+            hoveredPolygonId = e.features[0].id;
+            map.setFeatureState(
+                { source: 'nh-data', sourceLayer: 'nh_bottom_decile-42s87v', id: hoveredPolygonId },
+                { hover: true }
+            );
+        }
+    });
+
+    // When the mouse leaves the nh-poly layer, update the feature state of the
+    // previously hovered feature.
     map.on('mouseleave', 'nh-poly', () => {
-        map.getCanvas().style.cursor = '';
+        map.getCanvas().style.cursor = ''; // put the mouse cursor back to default
+        if (hoveredPolygonId !== null) {
+            map.setFeatureState(
+                { source: 'nh-data', sourceLayer: 'nh_bottom_decile-42s87v', id: hoveredPolygonId },
+                { hover: false }
+            );
+        }
+        hoveredPolygonId = null;
     });
     
 });
