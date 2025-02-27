@@ -24,11 +24,11 @@ map.on('load', () => {
             'fill-color':         [
                 'step', // STEP expression produces stepped results based on value pairs
                 ['get', 'Percent_in'], // GET expression retrieves property value from 'population' data field
-                '#7b3294', // Colour assigned to any values < first step
-                0.09, '#c2a5cf', // Colours assigned to values >= each step
-                0.14, '#f7f7f7',
-                0.18, '#a6dba0',
-                0.25, '#008837'
+                '#f2f0f7', // Colour assigned to any values < first step
+                0.09, '#cbc9e2', // Colours assigned to values >= each step
+                0.14, '#9e9ac8',
+                0.18, '#756bb1',
+                0.25, '#54278f'
             ],
             'fill-opacity': 0.5,
             'fill-outline-color': 'white'
